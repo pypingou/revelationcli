@@ -48,8 +48,7 @@ def get_arguments():
     parser.add_argument('database', help='The revelation database to \
         open')
     parser.add_argument('password_name', help='Name of the password \
-        to retrieve from the revelation database. You can use "/" to \
-        indicate folders.')
+        to retrieve from the revelation database.')
     parser.add_argument('--show', action='store_true',
         help='Actually prints the password to the terminal')
     parser.add_argument('--showtree', action='store_true',
