@@ -108,7 +108,7 @@ class RevelationCli():
         LOG.debug("Entry (%s) : %s", entry.typename, entry.name)
         if lvl:
             LOG.debug("Level : %s", lvl)
-            print "|  " * lvl + "\_", entry.name
+            print "  | " * lvl + "\_", entry.name
         elif entry.name == self.password_name:
             print "  Name :", entry.name
             for field in entry.fields:
