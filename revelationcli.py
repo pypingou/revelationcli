@@ -56,8 +56,8 @@ def get_arguments():
         dest="show_tree",
         help='Prints the tree of passwords and folder in the \
         terminal.')
-    parser.add_argument('--show-folder', action='store_true',
-        dest="show_folder",
+    parser.add_argument('--show-folders', action='store_true',
+        dest="show_folders",
         help='Prints the tree of folders in the terminal.')
     parser.add_argument('--verbose', action='store_true',
                 help="Gives more info about what's going on")
@@ -149,12 +149,12 @@ class RevelationCli():
         self.dbdata = read_file(self.dbfile)
         try:
             self.passwords = self.read_revelation_file()
-        except Exception, er:
-            LOG.debug(er)
+        except Exception, exc:
+            LOG.debug(exc)
             print "Wrong password entered"
             sys.exit(1)
-        
-        if args.show_folder:
+
+        if args.show_folders:
             self.show = False
             self.show_tree(folder_only=True)
         else:
@@ -187,7 +187,7 @@ class RevelationCli():
         LOG.debug('Show the ascii-tree of the database.')
         itera = self.passwords.get_iter_first()
         print "Database:"
-        self.__browse_entry(itera, lvl=1,folder_only=folder_only)
+        self.__browse_entry(itera, lvl=1, folder_only=folder_only)
 
 
 if __name__ == "__main__":
