@@ -52,9 +52,13 @@ def get_arguments():
         database.')
     parser.add_argument('--show', action='store_true',
         help='Actually prints the password to the terminal')
-    parser.add_argument('--showtree', action='store_true',
-        help='Actually prints the tree of passwords and folder in the \
+    parser.add_argument('--show-tree', action='store_true',
+        dest="show_tree",
+        help='Prints the tree of passwords and folder in the \
         terminal.')
+    parser.add_argument('--show-folder', action='store_true',
+        dest="show_folder",
+        help='Prints the tree of folders in the terminal.')
     parser.add_argument('--verbose', action='store_true',
                 help="Gives more info about what's going on")
     parser.add_argument('--debug', action='store_true',
@@ -86,43 +90,52 @@ class RevelationCli():
         self.dbdata = None
         self.passwords = None
 
-    def __browse_entry(self, itera, lvl=None):
+    def __browse_entry(self, itera, lvl=None, folder_only=False):
         """ For a given iterator (position) in the EntryStore, iterates
         through all the elements.
         :arg itera, an iterator (GtkTreeIter) for the EntryStore.
-        :arg lvl, an int of the Level of the tree we are in.
+        :kwarg lvl, an int of the Level of the tree we are in.
+        :kwarg folder_only, a boolean specifying whether the output
+        should contain only the folder or not.
         """
         while self.passwords.iter_next(itera):
-            self.__see_entry(itera, lvl=lvl)
+            self.__see_entry(itera, lvl=lvl, folder_only=folder_only)
             itera = self.passwords.iter_next(itera)
-        self.__see_entry(itera, lvl=lvl)
+        self.__see_entry(itera, lvl=lvl, folder_only=folder_only)
 
-    def __see_entry(self, itera, lvl=None):
+    def __see_entry(self, itera, lvl=None, folder_only=False):
         """ For a given iterator (position) in the EntryStore, see if the
         corresponding entry fits our search password.
         If the entry is a folder, browse it too.
         :arg itera, an iterator (GtkTreeIter) for the EntryStore.
-        :arg lvl, an int of the Level of the tree we are in.
+        :kwarg lvl, an int of the Level of the tree we are in.
+        :kwarg folder_only, a boolean specifying whether the output
+        should contain only the folder or not.
         """
         entry = self.passwords.get_value(itera, 2)
-        LOG.debug("Entry (%s) : %s", entry.typename, entry.name)
+        LOG.debug('Entry (%s) : %s', entry.typename, entry.name)
         if lvl:
-            LOG.debug("Level : %s", lvl)
-            print "  | " * lvl + "\_", entry.name
+            LOG.debug('Level : %s', lvl)
+            LOG.debug('Folder_only : %s', folder_only)
+            if folder_only and entry.typename == 'Folder':
+                print '  | ' * lvl + '\_', entry.name
+            elif not folder_only:
+                print '  | ' * lvl + '\_', entry.name
         elif entry.name == self.password_name:
-            print "  Name :", entry.name
+            print '  Name :', entry.name
             for field in entry.fields:
                 if field.value != "":
-                    if field.name != "Password":
-                        print "  %s : %s" % (field.name, field.value)
+                    if field.name != 'Password':
+                        print '  %s : %s' % (field.name, field.value)
                     elif self.show:
-                        print "  %s : %s" % (field.name, field.value)
+                        print '  %s : %s' % (field.name, field.value)
         if self.passwords.iter_has_child(itera):
             children = self.passwords.iter_children(itera)
             if lvl:
-                self.__browse_entry(children, lvl=lvl + 1)
+                self.__browse_entry(children, lvl=lvl + 1,
+                    folder_only=folder_only)
             else:
-                self.__browse_entry(children)
+                self.__browse_entry(children, folder_only=folder_only)
 
     def main(self):
         """ Main function, reads the command line argument and set the
@@ -134,12 +147,18 @@ class RevelationCli():
         self.show = args.show
 
         self.dbdata = read_file(self.dbfile)
-        self.passwords = self.read_revelation_file()
-        if args.showtree:
+        try:
+            self.passwords = self.read_revelation_file()
+        except Exception, er:
+            LOG.debug(er)
+            print "Wrong password entered"
+            sys.exit(1)
+        
+        if args.show_folder:
             self.show = False
-            self.show_tree()
+            self.show_tree(folder_only=True)
         else:
-            self.get_password()
+            self.show_tree()
 
     def get_password(self):
         """ Retrieve the root element of the tree and start browsing the
@@ -159,14 +178,16 @@ class RevelationCli():
         content = dafi.load(self.dbfile, password=password)
         return content
 
-    def show_tree(self):
+    def show_tree(self, folder_only=False):
         """ Prints the revelation database as an ascii-tree into the
         terminal.
+        :kwarg folder_only, a boolean specifying whether the output
+        should contain only the folder or not.
         """
         LOG.debug('Show the ascii-tree of the database.')
         itera = self.passwords.get_iter_first()
         print "Database:"
-        self.__browse_entry(itera, 1)
+        self.__browse_entry(itera, lvl=1,folder_only=folder_only)
 
 
 if __name__ == "__main__":
