@@ -93,6 +93,25 @@ class Config(object):
         else:
             self.config = None
 
+    def exists(self):
+        """ Returns a boolean whether the configuration file exists and
+        has been loaded or not.
+        """
+        if self.config:
+            return True
+        else:
+            return False
+
+    def get(self, section, option):
+        """ Retrieve an specific option in a defined section of the
+        configuration file
+        :arg section, the name of the section to look into (section are
+        marker [section name])
+        :arg option, the name of the option to search for in the given
+        section
+        """
+        return self.config.get(section, option)
+
 class RevelationCli():
     """ RecelationCli class, handling the element needed to search for
     passwords in a revelation database.
@@ -161,9 +180,9 @@ class RevelationCli():
         args = get_arguments()
         if args.database:
             self.dbfile = args.database
-        elif self.conf.config:
+        elif self.conf.exists():
             self.dbfile = os.path.expanduser(
-                self.conf.config.get('revelationcli', 'database'))
+                self.conf.get('revelationcli', 'database'))
         self.password_name = args.password_name
         self.show = args.show
 
