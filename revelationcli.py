@@ -27,9 +27,11 @@ from revelation.datahandler import detect_handler
 from revelation.io import DataFile
 
 import argparse
+import ConfigParser
 import getpass
 import logging
 import sys
+import os
 
 # Initial simple logging stuff
 logging.basicConfig()
@@ -45,8 +47,8 @@ def get_arguments():
     LOG.debug('Parse command line argument')
     parser = argparse.ArgumentParser(description='Command line client \
         for revelation, the password manager.')
-    parser.add_argument('database', help='The revelation database to \
-        open')
+    parser.add_argument('database', nargs='?', default=None,
+        help='The revelation database to open')
     parser.add_argument('password_name', nargs='?', default=None,
         help='Name of the password to retrieve from the revelation \
         database.')
@@ -77,6 +79,20 @@ def read_file(dbfile):
     return data
 
 
+class Config(object):
+    """ A config class to load/handle configuration file of revelationcli.
+    """
+    
+    def __init__(self):
+        """ Default constructor, loads the configuration file if present
+        and keeps the configuration accessible.
+        """
+        if os.path.exists(os.path.expanduser("~/.config/revelationcli")):
+            self.config = ConfigParser.ConfigParser()
+            self.config.read(os.path.expanduser("~/.config/revelationcli"))
+        else:
+            self.config = None
+
 class RevelationCli():
     """ RecelationCli class, handling the element needed to search for
     passwords in a revelation database.
@@ -89,6 +105,7 @@ class RevelationCli():
         self.dbfile = None
         self.dbdata = None
         self.passwords = None
+        self.conf = Config()
 
     def __browse_entry(self, itera, lvl=None, folder_only=False):
         """ For a given iterator (position) in the EntryStore, iterates
@@ -142,17 +159,25 @@ class RevelationCli():
         variables accordingly
         """
         args = get_arguments()
-        self.dbfile = args.database
+        if args.database:
+            self.dbfile = args.database
+        elif self.conf.config:
+            self.dbfile = os.path.expanduser(
+                self.conf.config.get('revelationcli', 'database'))
         self.password_name = args.password_name
         self.show = args.show
 
-        self.dbdata = read_file(self.dbfile)
         try:
+            self.dbdata = read_file(self.dbfile)
             self.passwords = self.read_revelation_file()
+        except IOError, exc:
+            LOG.debug(exc)
+            print "File could not be found or read"
+            sys.exit(1)
         except Exception, exc:
             LOG.debug(exc)
             print "Wrong password entered"
-            sys.exit(1)
+            sys.exit(2)
 
         if args.show_folders:
             self.show = False
