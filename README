@@ -1,0 +1,18 @@
+Revelationcli
+=============
+
+This is a small Command Line Interface to query a 
+revelation password database.
+
+It offers some basic funcionnality to list the
+items in the database and retrieve/display only
+the password of interest.
+
+$ python revelationcli.py --help
+provides some information on how to use this tool.
+
+Requires
+========
+- Python2
+    (tested on python 2.6.6)
+- Revelation
