@@ -137,7 +137,7 @@ class RevelationCli(object):
         self.dbfile = None
         self.dbdata = None
         self.passwords = None
-        self.dafi = None
+        self.handler = None
         self.conf = Config()
 
     def _browse_entry(self, itera, lvl=None, folder_only=False,
@@ -226,7 +226,8 @@ class RevelationCli(object):
 
         if args.interactive:
             try:
-                ppi = RevelationInteractive(self.passwords, self.dafi)
+                ppi = RevelationInteractive(self.passwords, self.dbfile,
+                    self.handler)
                 ppi.cmdloop()
             except KeyboardInterrupt:
                 ppi.do_quit(None)
@@ -250,10 +251,10 @@ class RevelationCli(object):
         """ Decrypt the content of the revelation database.
         """
         LOG.debug('Read the content of the database.')
-        handler = detect_handler(self.dbdata)
-        self.dafi = DataFile(handler)
+        self.handler = detect_handler(self.dbdata)
+        dafi = DataFile(self.handler)
         password = getpass.getpass()
-        content = self.dafi.load(self.dbfile, password=password)
+        content = dafi.load(self.dbfile, password=password)
         return content
 
     def show_tree(self, folder_only=False, iterative=True):
@@ -271,9 +272,11 @@ class RevelationCli(object):
 
 class RevelationInteractive(cmd.Cmd, RevelationCli):
 
-    def __init__(self, passwords, filename=None):
+    def __init__(self, passwords, filename, handler):
         cmd.Cmd.__init__(self)
         self.passwords = passwords
+        self.filename = filename
+        self.handler = handler
         self.data = data.EntryStore()
         self.intro = 'See `help` for a list of the command available.'
         self.path = "/"
@@ -440,6 +443,30 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
     def do_pwd(self, params):
         """ Print the working directory. """
         print self.path
+
+    def do_save(self, params):
+        """ Save the current database.
+        :arg filename to which the database will be saved, if not
+        specified it will save the current file or will take it the
+        default from the configuration file."""
+        if not params and not self.filename:
+            print 'Please specify a filename to which save the database.'
+        else:
+            password = getpass.getpass()
+            if self.filename and not params:
+                io = DataFile(self.handler)
+                io.save(self.passwords, self.filename, password=password)
+                print "Saved"
+                self.modified = False
+            elif params:
+                filename = os.path.expanduser(params)
+                if filename == params:
+                    filename = os.path.join(os.getcwd(), filename)
+                io = DataFile(self.handler)
+                print filename
+                io.save(self.passwords, filename, password=password)
+                print "Saved"
+                self.modified = False
 
     def do_quit(self, params):
         """ Quit the program. """
