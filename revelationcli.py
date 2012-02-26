@@ -25,6 +25,7 @@ along with revelationcli.  If not, see <http://www.gnu.org/licenses/>.
 
 from revelation.datahandler import detect_handler
 from revelation.io import DataFile
+from revelation import data
 
 import argparse
 import cmd
@@ -33,6 +34,7 @@ import getpass
 import logging
 import sys
 import os
+from warnings import warn
 
 TKIMPORT = True
 try:
@@ -122,6 +124,7 @@ class Config(object):
         """
         return self.config.get(section, option)
 
+
 class RevelationCli(object):
     """ RecelationCli class, handling the element needed to search for
     passwords in a revelation database.
@@ -134,6 +137,7 @@ class RevelationCli(object):
         self.dbfile = None
         self.dbdata = None
         self.passwords = None
+        self.dafi = None
         self.conf = Config()
 
     def _browse_entry(self, itera, lvl=None, folder_only=False,
@@ -222,7 +226,7 @@ class RevelationCli(object):
 
         if args.interactive:
             try:
-                ppi = RevelationInteractive(self.passwords)
+                ppi = RevelationInteractive(self.passwords, self.dafi)
                 ppi.cmdloop()
             except KeyboardInterrupt:
                 ppi.do_quit(None)
@@ -247,9 +251,9 @@ class RevelationCli(object):
         """
         LOG.debug('Read the content of the database.')
         handler = detect_handler(self.dbdata)
-        dafi = DataFile(handler)
+        self.dafi = DataFile(handler)
         password = getpass.getpass()
-        content = dafi.load(self.dbfile, password=password)
+        content = self.dafi.load(self.dbfile, password=password)
         return content
 
     def show_tree(self, folder_only=False, iterative=True):
@@ -270,96 +274,64 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
     def __init__(self, passwords, filename=None):
         cmd.Cmd.__init__(self)
         self.passwords = passwords
+        self.data = data.EntryStore()
         self.intro = 'See `help` for a list of the command available.'
         self.path = "/"
         self.modified = False
         self.itera = self.passwords.get_iter_first()
         self.root_itera = self.passwords.get_iter_first()
+        self.data.import_entry(self.passwords, self.root_itera)
         if not TKIMPORT:
             warn('The copy command from the interactive shell will not be available. '\
         'Install the Tkinter library to have it.')
 
     def complete_cat(self, text, line, start_index, end_index):
-        options = [account.name for account in self.folder.accounts]
+        options = []
+        itera = self.itera
+        while self.passwords.iter_next(itera):
+            entry = self.passwords.get_value(itera, 2)
+            if entry.typename != 'Folder':
+                options.append(entry.name)
+            itera = self.passwords.iter_next(itera)
+        entry = self.passwords.get_value(itera, 2)
+        if entry.typename != 'Folder':
+                options.append(entry.name)
         return options
 
     def complete_cd(self, text, line, start_index, end_index):
-        options = [folder.name for folder in self.folder.folders]
+        options = []
+        itera = self.itera
+        while self.passwords.iter_next(itera):
+            entry = self.passwords.get_value(itera, 2)
+            if entry.typename == 'Folder':
+                options.append(entry.name)
+            itera = self.passwords.iter_next(itera)
+        entry = self.passwords.get_value(itera, 2)
+        if entry.typename == 'Folder':
+                options.append(entry.name)
         return options
 
     def complete_cmd(self, text, line, start_index, end_index):
-        commands = ['add', 'add_folder', 'cat', 'cd', 'exit', 'ls', 'pwd',
-            'quit', 'remove', 'save', 'view']
+        commands = ['cat', 'cd', 'exit', 'ls', 'pwd',
+            'quit', 'save', 'view']
         return commands
     
     def complete_view(self, text, line, start_index, end_index):
-        options = [account.name for account in self.folder.accounts]
+        options = []
+        itera = self.itera
+        while self.passwords.iter_next(itera):
+            entry = self.passwords.get_value(itera, 2)
+            if entry.typename != 'Folder':
+                options.append(entry.name)
+            itera = self.passwords.iter_next(itera)
+        entry = self.passwords.get_value(itera, 2)
+        if entry.typename != 'Folder':
+                options.append(entry.name)
         return options
-
-    def do_add(self, params):
-        """ Add a password in the database. """
-        print 'Adding a password into the folder: %s' % self.path
-        name = params
-        if not name:
-            name = raw_input('Name: ')
-        password = getpass.getpass('Password: ')
-        account = PypAccount(name, password)
-        add_extras = raw_input( 'Do you want to add extra-information? [Y/N] ')
-        while add_extras.lower().startswith('y'):
-            key = raw_input('Title: ')
-            value = raw_input('Value: ')
-            account.extras[key] = value
-            add_extras = raw_input( 'Do you want to add extra-information? [Y/N] ')
-        self.folder.accounts.append(account)
-        self.modified = True
-
-    def do_add_folder(self, params):
-        """ Add a folder in the current directory. """
-        name = params
-        if not name:
-            name = raw_input('Name: ')
-        desc = raw_input('Description: ')
-        folder = PypFolder(name, desc)
-        self.folder.folders.append(folder)
-        self.modified = True
 
     def do_cat(self, params):
         """ Display the information relative to a given password. """
         self.do_view(params)
-
-    def do_cd(self, params):
-        """ Change the working directory. """
-        if not params:
-            self.itera = self.root_itera
-            self.path = '/'
-            return
-
-        #if params == '..':
-            #path = self.path.split('/')
-            #self.folder = self.pyp_main_folder
-            #self.path = '/'
-            #for folder in path[1:-2]:
-                #self.do_cd(folder)
-            #return
-
-        found = False
-        itera = self.itera
-        while self.passwords.iter_next(itera):
-            entry = self.passwords.get_value(itera, 2)
-            LOG.debug('- Entry (%s) : %s', entry.typename, entry.name)
-            if entry.name == params:
-                self.itera = itera
-                found = True
-                break
-            itera = self.passwords.iter_next(itera)
-        entry = self.passwords.get_value(itera, 2)
-        LOG.debug('* Entry (%s) : %s', entry.typename, entry.name)
-        if entry.name == params:
-                self.itera = itera
-                found = True
-        
-        if not found:
-            print 'No folder of the name "%s" were found in this folder.' % params
 
     def do_copy(self, params):
         """ Copy the password of the given account to the clipboard. """
@@ -370,16 +342,63 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
             print 'No password specified'
         else:
             found = False
-            for account in self.folder.accounts:
-                if account.name == params:
-                    r = Tk()
-                    r.withdraw()
-                    r.clipboard_clear()
-                    r.clipboard_append(account.password)
-                    print 'Password for the account %s copied to clipboard' % account.name
+            itera = self.itera
+            while self.passwords.iter_next(itera):
+                entry = self.passwords.get_value(itera, 2)
+                LOG.debug('- Entry (%s) : %s', entry.typename, entry.name)
+                if entry.name == params:
                     found = True
-            if not found:
-                print 'No password of the name "%s" were found in this folder.' % params
+                    break
+                itera = self.passwords.iter_next(itera)
+            entry = self.passwords.get_value(itera, 2)
+            LOG.debug('* Entry (%s) : %s', entry.typename, entry.name)
+            if entry.name == params:
+                    found = True
+
+            if found:
+                print params
+                entry = self.passwords.get_value(itera, 2)
+                LOG.debug('Entry (%s) : %s', entry.typename, entry.name)
+                print "  Name:%s%s" % (" "*abs(len('Name') -15), entry.name)
+                ## FIXME: for some reason doesn't work so well...
+                r = Tk()
+                r.withdraw()
+                r.clipboard_clear()
+                for fields in entry.fields:
+                    if fields.value.strip():
+                        if fields.name == 'Password':
+                            r.clipboard_append(fields.value)
+            else:
+                print 'No password of the name "%s" were found in ' \
+                'this folder.' % params
+
+    def do_cd(self, params):
+        """ Change the working directory. """
+        if not params:
+            self.itera = self.root_itera
+            self.path = '/'
+            return
+
+        found = False
+        itera = self.itera
+        while self.passwords.iter_next(itera):
+            entry = self.passwords.get_value(itera, 2)
+            LOG.debug('- Entry (%s) : %s', entry.typename, entry.name)
+            if entry.name == params:
+                self.itera = self.passwords.iter_children(itera)
+                self.path = '%s/%s' % (self.path, params)
+                found = True
+                break
+            itera = self.passwords.iter_next(itera)
+        entry = self.passwords.get_value(itera, 2)
+        LOG.debug('* Entry (%s) : %s', entry.typename, entry.name)
+        if entry.name == params:
+                self.itera = self.passwords.iter_children(itera)
+                self.path = '%s/%s' % (self.path, params)
+                found = True
+
+        if not found:
+            print 'No folder of the name "%s" were found in this folder.' % params
 
     def do_exit(self, params):
         """ Quit the program. """
@@ -390,34 +409,33 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
         directory.
         """
         if not params:
-            print self.itera
             self._browse_entry(self.itera, lvl=1, folder_only=False,
             iterative=False)
         else:
-            print params
-            
             found = False
             itera = self.itera
             while self.passwords.iter_next(itera):
                 entry = self.passwords.get_value(itera, 2)
                 LOG.debug('- Entry (%s) : %s', entry.typename, entry.name)
                 if entry.name == params:
-                    self.itera = itera
                     found = True
                     break
                 itera = self.passwords.iter_next(itera)
             entry = self.passwords.get_value(itera, 2)
             LOG.debug('* Entry (%s) : %s', entry.typename, entry.name)
             if entry.name == params:
-                    self.itera = itera
                     found = True
             
-            entry = self.passwords.get_value(self.itera, 2)
-            LOG.debug('Entry (%s) : %s', entry.typename, entry.name)
-            if self.passwords.iter_has_child(self.itera):
-                children = self.passwords.iter_children(self.itera)
-                self._browse_entry(children, lvl=1,
-                        folder_only=False, iterative=False)
+            if found:
+                print params
+                entry = self.passwords.get_value(itera, 2)
+                LOG.debug('Entry (%s) : %s', entry.typename, entry.name)
+                if self.passwords.iter_has_child(itera):
+                    children = self.passwords.iter_children(itera)
+                    self._browse_entry(children, lvl=1,
+                            folder_only=False, iterative=False)
+            else:
+                print 'No folder %s found' % params
 
     def do_pwd(self, params):
         """ Print the working directory. """
@@ -434,84 +452,42 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
                 self.do_save(None)
         sys.exit(1)
 
-    def do_remove(self, params):
-        """ Remove a password from the database.
-        """
-        if not params:
-            print 'Please specify the password or folder to remove.'
-        else:
-            for folder in self.folder.folders:
-                if params == folder.name:
-                    usr_inp = raw_input('Are you sure you want to remove the folder "%s"? [Y/N] ' %
-                        params)
-                    if usr_inp.lower().startswith('y'):
-                        self.folder.folders.remove(folder)
-                        self.modified = True
-            for account in self.folder.accounts:
-                if params == account.name:
-                    usr_inp = raw_input('Are you sure you want to remove the account "%s"? [Y/N] ' %
-                        params)
-                    if usr_inp.lower().startswith('y'):
-                        self.folder.accounts.remove(account)
-                        self.modified = True
-
-    def do_save(self, params):
-        """ Save the current database.
-    :arg filename to which the database will be saved, if not specified
-        it will save the current file or will take it the default from
-        the configuration file."""
-        self.pyp.data = self.pyp_main_folder.dump()
-        if not params and not self.filename:
-            print 'Please specify a filename to which save the database.'
-        elif self.filename and not params:
-            outcome = self.pyp.crypt(filename = self.filename, force=True)
-            if outcome is False:
-                print 'Could not save the database, Wrong/Expired key?'
-            elif outcome == 'key_not_found':
-                print 'No key specified in the configuration file.'
-            elif outcome == 'file_exists':
-                print 'This database file already exists.'
-            else:
-                self.modified = False
-        elif params:
-            outcome = self.pyp.crypt(filename = params)
-            if outcome is False:
-                print 'Could not save the database, Wrong/Expired key?'
-            elif outcome == 'key_not_found':
-                print 'No key specified in the configuration file.'
-            elif outcome == 'file_exists':
-                print 'This database file already exists.'
-                usr_inp = raw_input( 'To you want to over write this file? [Y/N]')
-                if usr_inp.lower().startswith('y'):
-                    self.pyp.crypt(filename = params, force=True)
-                    self.modified = False
-            else:
-                self.modified = False
-
     def do_view(self, params):
         """ Display the information relative to a given password. """
         if not params:
             print 'No password specified'
         else:
             found = False
-            for account in self.folder.accounts:
-                if account.name == params:
-                    print account
+            itera = self.itera
+            while self.passwords.iter_next(itera):
+                entry = self.passwords.get_value(itera, 2)
+                LOG.debug('- Entry (%s) : %s', entry.typename, entry.name)
+                if entry.name == params:
                     found = True
-            if not found:
-                print 'No password of the name "%s" were found in this folder.' % params
+                    break
+                itera = self.passwords.iter_next(itera)
+            entry = self.passwords.get_value(itera, 2)
+            LOG.debug('* Entry (%s) : %s', entry.typename, entry.name)
+            if entry.name == params:
+                    found = True
 
-    def view_folder(self, folder):
-        """ Display the content of a folder. """
-        if len(folder.folders) > 0:
-            print _("Folders:")
-            for fold in folder.folders:
-                print "  " + fold.name
-
-        if len(folder.accounts) > 0:
-            print _("Accounts:")
-            for account in folder.accounts:
-                print '  %s' % account.name
+            if found:
+                print params
+                entry = self.passwords.get_value(itera, 2)
+                LOG.debug('Entry (%s) : %s', entry.typename, entry.name)
+                print "  Name:%s%s" % (" "*abs(len('Name') -15), entry.name)
+                if entry.description:
+                    print "  Description:%s%s" (" "*abs(len('Description') -15),
+                        entry.description)
+                print "  Type:%s%s" % (" "*abs(len('Type') -15),
+                        entry.typename)
+                for fields in entry.fields:
+                    if fields.value.strip():
+                        print "  %s:%s%s" %(fields.name,
+                            " "*abs(len(fields.name) - 15), fields)
+            else:
+                print 'No password of the name "%s" were found in ' \
+                'this folder.' % params
 
 
 if __name__ == "__main__":
