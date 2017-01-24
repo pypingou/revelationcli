@@ -515,7 +515,7 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
                 LOG.debug('Entry (%s) : %s', entry.typename, entry.name)
                 print "  Name:%s%s" % (" "*abs(len('Name') -15), entry.name)
                 if entry.description:
-                    print "  Description:%s%s" (" "*abs(len('Description') -15),
+                    print "  Description:%s%s" % (" "*abs(len('Description') -15),
                         entry.description)
                 print "  Type:%s%s" % (" "*abs(len('Type') -15),
                         entry.typename)
