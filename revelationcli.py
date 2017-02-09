@@ -284,6 +284,7 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
         self.itera = self.passwords.get_iter_first()
         self.root_itera = self.passwords.get_iter_first()
         self.data.import_entry(self.passwords, self.root_itera)
+        self.entrysearch = data.EntrySearch(self.passwords)
         if not TKIMPORT:
             warn('The copy command from the interactive shell will not be available. '\
         'Install the Tkinter library to have it.')
@@ -315,7 +316,7 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
         return options
 
     def complete_cmd(self, text, line, start_index, end_index):
-        commands = ['cat', 'cd', 'exit', 'ls', 'pwd',
+        commands = ['cat', 'cd', 'exit', 'find', 'ls', 'pwd',
             'quit', 'save', 'view']
         return commands
 
@@ -527,6 +528,23 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
                 print 'No password of the name "%s" were found in ' \
                 'this folder.' % params
 
+    def do_find(self, params):
+        """Search a specific password and display a list of matching paths."""
+        def check_entry(model, path, iter, user_data):
+            if self.entrysearch.match(iter, user_data['kw']):
+                user_data['matches'].append(iter)
+            return False
+
+        user_data = {'matches': [], 'kw': params}
+        self.passwords.foreach(check_entry, user_data)
+
+        for entry in user_data['matches']:
+            path = self.passwords.get_entry(entry).name
+            parent = self.passwords.iter_parent(entry)
+            while parent:
+                path = self.passwords.get_entry(parent).name + '/' + path
+                parent = self.passwords.iter_parent(parent)
+            print '/' + path
 
 if __name__ == "__main__":
     RevelationCli().main()
