@@ -94,7 +94,7 @@ def read_file(dbfile):
 class Config(object):
     """ A config class to load/handle configuration file of revelationcli.
     """
-    
+
     def __init__(self):
         """ Default constructor, loads the configuration file if present
         and keeps the configuration accessible.
@@ -284,6 +284,7 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
         self.itera = self.passwords.get_iter_first()
         self.root_itera = self.passwords.get_iter_first()
         self.data.import_entry(self.passwords, self.root_itera)
+        self.entrysearch = data.EntrySearch(self.passwords)
         if not TKIMPORT:
             warn('The copy command from the interactive shell will not be available. '\
         'Install the Tkinter library to have it.')
@@ -315,10 +316,10 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
         return options
 
     def complete_cmd(self, text, line, start_index, end_index):
-        commands = ['cat', 'cd', 'exit', 'ls', 'pwd',
+        commands = ['cat', 'cd', 'exit', 'find', 'ls', 'pwd',
             'quit', 'save', 'view']
         return commands
-    
+
     def complete_view(self, text, line, start_index, end_index):
         options = []
         itera = self.itera
@@ -384,18 +385,29 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
 
         found = False
         itera = self.itera
-        while self.passwords.iter_next(itera):
-            entry = self.passwords.get_value(itera, 2)
-            LOG.debug('- Entry (%s) : %s', entry.typename, entry.name)
-            if entry.name == params:
-                self.itera = self.passwords.iter_children(itera)
-                self.path = '%s/%s' % (self.path, params)
+        if params == '..':
+            parent = self.passwords.iter_parent(self.itera)
+            if parent is not None:
+                grandparent = self.passwords.iter_parent(parent)
+                if grandparent is not None:
+                    self.itera = self.passwords.iter_children(grandparent)
+                    self.path = os.path.dirname(self.path)
+                else:
+                    self.itera = self.root_itera
+                    self.path = '/'
                 found = True
-                break
-            itera = self.passwords.iter_next(itera)
-        entry = self.passwords.get_value(itera, 2)
-        LOG.debug('* Entry (%s) : %s', entry.typename, entry.name)
-        if entry.name == params:
+        else:
+            while self.passwords.iter_next(itera):
+                entry = self.passwords.get_value(itera, 2)
+                LOG.debug('- Entry (%s) : %s', entry.typename, entry.name)
+                if entry.name == params:
+                    self.itera = self.passwords.iter_children(itera)
+                    found = True
+                    break
+                itera = self.passwords.iter_next(itera)
+            entry = self.passwords.get_value(itera, 2)
+            LOG.debug('* Entry (%s) : %s', entry.typename, entry.name)
+            if entry.name == params:
                 self.itera = self.passwords.iter_children(itera)
                 self.path = '%s/%s' % (self.path, params)
                 found = True
@@ -428,7 +440,7 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
             LOG.debug('* Entry (%s) : %s', entry.typename, entry.name)
             if entry.name == params:
                     found = True
-            
+
             if found:
                 print params
                 entry = self.passwords.get_value(itera, 2)
@@ -504,7 +516,7 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
                 LOG.debug('Entry (%s) : %s', entry.typename, entry.name)
                 print "  Name:%s%s" % (" "*abs(len('Name') -15), entry.name)
                 if entry.description:
-                    print "  Description:%s%s" (" "*abs(len('Description') -15),
+                    print "  Description:%s%s" % (" "*abs(len('Description') -15),
                         entry.description)
                 print "  Type:%s%s" % (" "*abs(len('Type') -15),
                         entry.typename)
@@ -516,6 +528,23 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
                 print 'No password of the name "%s" were found in ' \
                 'this folder.' % params
 
+    def do_find(self, params):
+        """Search a specific password and display a list of matching paths."""
+        def check_entry(model, path, iter, user_data):
+            if self.entrysearch.match(iter, user_data['kw']):
+                user_data['matches'].append(iter)
+            return False
+
+        user_data = {'matches': [], 'kw': params}
+        self.passwords.foreach(check_entry, user_data)
+
+        for entry in user_data['matches']:
+            path = self.passwords.get_entry(entry).name
+            parent = self.passwords.iter_parent(entry)
+            while parent:
+                path = self.passwords.get_entry(parent).name + '/' + path
+                parent = self.passwords.iter_parent(parent)
+            print '/' + path
 
 if __name__ == "__main__":
     RevelationCli().main()
