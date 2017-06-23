@@ -400,14 +400,14 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
             while self.passwords.iter_next(itera):
                 entry = self.passwords.get_value(itera, 2)
                 LOG.debug('- Entry (%s) : %s', entry.typename, entry.name)
-                if entry.name == params:
+                if entry.name == params and entry.typename == 'Folder':
                     self.itera = self.passwords.iter_children(itera)
                     found = True
                     break
                 itera = self.passwords.iter_next(itera)
             entry = self.passwords.get_value(itera, 2)
             LOG.debug('* Entry (%s) : %s', entry.typename, entry.name)
-            if entry.name == params:
+            if entry.name == params and entry.typename == 'Folder':
                 self.itera = self.passwords.iter_children(itera)
                 self.path = '%s/%s' % (self.path, params)
                 found = True
