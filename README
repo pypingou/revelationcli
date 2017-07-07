@@ -4,7 +4,7 @@ Revelationcli
 This is a small Command Line Interface to query a 
 revelation password database.
 
-It offers some basic funcionality to list the
+It offers some basic functionality to list the
 items in the database and retrieve/display only
 the password of interest.
 
