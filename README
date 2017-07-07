@@ -4,15 +4,36 @@ Revelationcli
 This is a small Command Line Interface to query a 
 revelation password database.
 
-It offers some basic funcionnality to list the
+It offers some basic functionality to list the
 items in the database and retrieve/display only
 the password of interest.
 
+```
 $ python revelationcli.py --help
-provides some information on how to use this tool.
+usage: revelationcli.py [-h] [-i] [--show] [--show-tree] [--show-folders]
+                        [--verbose] [--debug]
+                        [database] [password_name]
+
+Command line client for revelation, the password manager.
+
+positional arguments:
+  database           The revelation database to open
+  password_name      Name of the password to retrieve from the revelation
+                     database.
+
+optional arguments:
+  -h, --help         show this help message and exit
+  -i, --interactive  Enter PyPass interactive mode
+  --show             Actually prints the password to the terminal
+  --show-tree        Prints the tree of passwords and folder in the terminal.
+  --show-folders     Prints the tree of folders in the terminal.
+  --verbose          Gives more info about what's going on
+  --debug            Outputs bunches of debugging info
+```
 
 Requires
 ========
 - Python2
-    (tested on python 2.6.6)
+    (tested on python 2.6.6 and 2.7.9)
 - Revelation
+    (https://revelation.olasagasti.info/)
