@@ -419,6 +419,11 @@ class RevelationInteractive(cmd.Cmd, RevelationCli):
         """ Quit the program. """
         self.do_quit(params)
 
+    def do_EOF(self, params):
+        """ Quit the program. """
+        print('\n')  # since no command was entered, clear the prompt line
+        self.do_quit(params)
+
     def do_ls(self, params):
         """ List directory and password available in the current
         directory.
